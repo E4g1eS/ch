@@ -3,6 +3,7 @@ CFLAGS = -g -Wall -pedantic
 TARGET := app.out
 BUILD := build
 BIN := bin
+SRC := src
 
 SRCS = $(wildcard *.cpp)
 
