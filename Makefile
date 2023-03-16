@@ -1,14 +1,22 @@
 CC = g++
 CFLAGS = -g -Wall -pedantic
 TARGET := app.out
+BUILD := build
+BIN := bin
 
 SRCS = $(wildcard *.cpp)
 
 OBJS = $(patsubst %.cpp,%.o,$(SRCS))
 
 all: $(TARGET)
-$(TARGET): $(OBJS)
-	$(CC) -o $@ $^
+$(TARGET): $(OBJS) | $(BIN)
+	$(CC) -o $(addprefix $(BIN)/,$@) $(addprefix $(BUILD)/,$^)
 
-%.o: %.cpp
-	$(CC) $(CFLAGS) -c $<
+%.o: %.cpp | $(BUILD)
+	$(CC) $(CFLAGS) -c $< -o $(addprefix $(BUILD)/,$@)
+
+$(BIN):
+	mkdir $(BIN)
+
+$(BUILD):
+	mkdir $(BUILD)
