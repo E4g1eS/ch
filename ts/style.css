@@ -32,6 +32,10 @@ div.chessboard-square-highlighted {
     background-color: rgb(247, 187, 187);
 }
 
+div.chessboard-square-available {
+    background-color: rgb(187, 247, 195);
+}
+
 .white-piece {
     color: white;
     -webkit-text-stroke: black 0.01em;

@@ -30,24 +30,26 @@ class Vector2 {
   x: number;
   y: number;
 
-  constructor(x: number, y: number)
-  {
+  constructor(x: number, y: number) {
     this.x = x;
     this.y = y;
   }
 
-  public compare(other: Vector2): boolean
-  {
-    return (this.x === other.x) && (this.y === other.y);
+  public equals(other: Vector2): boolean {
+    return this.x === other.x && this.y === other.y;
+  }
+
+  public add(other: Vector2): Vector2 {
+    return new Vector2(this.x + other.x, this.y + other.y);
   }
 }
 
 interface IPiece {
-  getColor() : Color;
+  getColor(): Color;
   getNotation(): string;
 }
 
-abstract class Piece implements IPiece{
+abstract class Piece implements IPiece {
   color: Color;
 
   constructor(color: Color) {
@@ -56,42 +58,217 @@ abstract class Piece implements IPiece{
 
   abstract notation(): string;
 
-  getColor(): Color {
+  public getColor(): Color {
     return this.color;
   }
 
-  getNotation(): string {
-      return this.notation();
+  public getNotation(): string {
+    return this.notation();
+  }
+
+  abstract getMoves(position: Vector2, game: Game, board: Board): Vector2[];
+
+  doMove(origin: Vector2, destination: Vector2, game: Game, board: Board): void {
+    board.squares[destination.x][destination.y] = board.squares[origin.x][origin.y];
+    board.squares[origin.x][origin.y] = null;
+    
+    if (game.toPlay === Color.White) game.toPlay = Color.Black;
+    else game.toPlay = Color.White;
+  }
+
+  protected jumpMove(board: Board, destination: Vector2): boolean {
+    if (!board.isOnBoard(destination)) return false;
+
+    let destinationPiece = board.squares[destination.x][destination.y];
+
+    if (destinationPiece === null || destinationPiece.color !== this.color)
+      return true;
+
+    return false;
+  }
+
+  protected slideMove(
+    board: Board,
+    origin: Vector2,
+    offset: Vector2
+  ): Vector2[] {
+    let moves = new Array<Vector2>();
+
+    let destination = origin.add(offset);
+
+    while (true) {
+      if (!board.isOnBoard(destination)) return moves;
+
+      let destinationPiece = board.squares[destination.x][destination.y];
+
+      if (destinationPiece === null || destinationPiece.color !== this.color)
+        moves.push(destination);
+
+      if (destinationPiece !== null) return moves;
+
+      destination = destination.add(offset);
+    }
   }
 }
 
 class King extends Piece {
+  getMoves(position: Vector2, game: Game, board: Board): Vector2[] {
+    let moves = new Array<Vector2>();
+
+    const offsets = [
+      new Vector2(-1, -1),
+      new Vector2(-1, 0),
+      new Vector2(-1, 1),
+      new Vector2(0, -1),
+      new Vector2(0, 1),
+      new Vector2(1, -1),
+      new Vector2(1, 0),
+      new Vector2(1, 1),
+    ];
+
+    offsets.forEach((offset) => {
+      let destination = position.add(offset);
+      if (this.jumpMove(board, destination)) moves.push(destination);
+    });
+
+    return moves;
+  }
   notation(): string {
     return "K";
   }
 }
 
 class Queen extends Piece {
+  getMoves(position: Vector2, game: Game, board: Board): Vector2[] {
+    let moves = new Array<Vector2>();
+
+    moves = moves.concat(this.slideMove(board, position, new Vector2(-1, 0)));
+    moves = moves.concat(this.slideMove(board, position, new Vector2(0, -1)));
+    moves = moves.concat(this.slideMove(board, position, new Vector2(0, 1)));
+    moves = moves.concat(this.slideMove(board, position, new Vector2(1, 0)));
+
+    moves = moves.concat(this.slideMove(board, position, new Vector2(-1, -1)));
+    moves = moves.concat(this.slideMove(board, position, new Vector2(-1, 1)));
+    moves = moves.concat(this.slideMove(board, position, new Vector2(1, -1)));
+    moves = moves.concat(this.slideMove(board, position, new Vector2(1, 1)));
+
+    return moves;
+  }
+
   notation(): string {
     return "Q";
   }
 }
 class Rook extends Piece {
+  getMoves(position: Vector2, game: Game, board: Board): Vector2[] {
+    let moves = new Array<Vector2>();
+
+    moves = moves.concat(this.slideMove(board, position, new Vector2(-1, 0)));
+    moves = moves.concat(this.slideMove(board, position, new Vector2(0, -1)));
+    moves = moves.concat(this.slideMove(board, position, new Vector2(0, 1)));
+    moves = moves.concat(this.slideMove(board, position, new Vector2(1, 0)));
+
+    return moves;
+  }
   notation(): string {
     return "R";
   }
 }
 class Bishop extends Piece {
+  getMoves(position: Vector2, game: Game, board: Board): Vector2[] {
+    let moves = new Array<Vector2>();
+
+    moves = moves.concat(this.slideMove(board, position, new Vector2(-1, -1)));
+    moves = moves.concat(this.slideMove(board, position, new Vector2(-1, 1)));
+    moves = moves.concat(this.slideMove(board, position, new Vector2(1, -1)));
+    moves = moves.concat(this.slideMove(board, position, new Vector2(1, 1)));
+
+    return moves;
+  }
   notation(): string {
     return "B";
   }
 }
 class Knight extends Piece {
+  getMoves(position: Vector2, game: Game, board: Board): Vector2[] {
+    let moves = new Array<Vector2>();
+
+    const offsets = [
+      new Vector2(-2, -1),
+      new Vector2(-2, 1),
+      new Vector2(-1, -2),
+      new Vector2(-1, 2),
+      new Vector2(1, -2),
+      new Vector2(1, 2),
+      new Vector2(2, -1),
+      new Vector2(2, 1),
+    ];
+
+    offsets.forEach((offset) => {
+      let destination = position.add(offset);
+      if (this.jumpMove(board, destination)) moves.push(destination);
+    });
+
+    return moves;
+  }
+
   notation(): string {
     return "N";
   }
 }
 class Pawn extends Piece {
+  getMoves(position: Vector2, game: Game, board: Board): Vector2[] {
+    let moves = new Array<Vector2>();
+
+    let direction = new Vector2(0, 1);
+    if (this.color === Color.Black) direction = new Vector2(0, -1);
+
+    //One step forward
+    let oneStep = position.add(direction);
+    if (
+      board.isOnBoard(oneStep) &&
+      board.squares[oneStep.x][oneStep.y] === null
+    ) {
+      moves.push(oneStep);
+
+      //Double step
+      let twoStep = oneStep.add(direction);
+
+      log(`${position.y * 2 - 7} === ${direction.y * 5}`);
+
+      if (
+        position.y * 2 - 7 === -(direction.y * 5) &&
+        board.squares[twoStep.x][twoStep.y] === null
+      )
+        moves.push(twoStep);
+    }
+
+    //Take left
+    let takeLeft = position.add(direction).add(new Vector2(-1, 0));
+    let takeLeftPiece = board.squares[takeLeft.x][takeLeft.y];
+    if (
+      (board.isOnBoard(takeLeft) &&
+        takeLeftPiece !== null &&
+        takeLeftPiece.color !== this.color) ||
+      (game.enPassant !== null && game.enPassant.equals(takeLeft)) // en passant
+    ) {
+      moves.push(takeLeft);
+    }
+
+    //Take left
+    let takeRight = position.add(direction).add(new Vector2(1, 0));
+    let takeRightPiece = board.squares[takeRight.x][takeRight.y];
+    if (
+      (board.isOnBoard(takeRight) &&
+        takeRightPiece !== null &&
+        takeRightPiece.color !== this.color) ||
+      (game.enPassant !== null && game.enPassant.equals(takeRight))
+    ) {
+      moves.push(takeRight);
+    }
+
+    return moves;
+  }
   notation(): string {
     return "P";
   }
@@ -103,22 +280,20 @@ class Board {
 
   constructor() {
     this.size = 8;
-    this.initSqaures(); 
+    this.initSqaures();
   }
 
-  private initSqaures():void {
+  private initSqaures(): void {
     this.squares = [];
-    for (let i = 0; i < this.size; i++)
-    {
+    for (let i = 0; i < this.size; i++) {
       this.squares[i] = [];
-      for (let j = 0; j < this.size; j++)
-      {
+      for (let j = 0; j < this.size; j++) {
         this.squares[i][j] = null;
       }
     }
   }
 
-  public defaultPosition():void {
+  public defaultPosition(): void {
     this.initSqaures();
 
     // WHITE
@@ -159,6 +334,15 @@ class Board {
     this.squares[6][6] = new Pawn(Color.Black);
     this.squares[7][6] = new Pawn(Color.Black);
   }
+
+  isOnBoard(position: Vector2): boolean {
+    return (
+      position.x >= 0 &&
+      position.y >= 0 &&
+      position.x < this.size &&
+      position.y < this.size
+    );
+  }
 }
 
 interface IGame {
@@ -166,20 +350,29 @@ interface IGame {
   size(): number;
   getBoardState(): Array<Array<IPiece | null>>;
   getActiveSquare(): Vector2 | null;
+  getAvailableMoves(): Vector2[];
   clicked(position: Vector2): void;
 }
 
 class Game implements IGame {
   private board: Board;
   private activeSquare: Vector2 | null;
+  public toPlay: Color;
+
+  public enPassant: Vector2 | null;
 
   constructor() {
     this.board = new Board();
     this.activeSquare = null;
+    this.enPassant = null;
+    this.toPlay = Color.White;
   }
 
   public newGame(): void {
     this.board.defaultPosition();
+    this.activeSquare = null;
+    this.enPassant = null;
+    this.toPlay = Color.White;
   }
 
   public size(): number {
@@ -190,21 +383,48 @@ class Game implements IGame {
     return this.board.squares;
   }
 
-  getActiveSquare(): Vector2 | null {
+  public getActiveSquare(): Vector2 | null {
     return this.activeSquare;
   }
 
-  public clicked(position: Vector2): void {
+  public getAvailableMoves(): Vector2[] {
+    if (this.activeSquare === null) return [];
 
-    if (this.activeSquare === null)
-    {
-      if (this.board.squares[position.x][position.y] === null) return;
+    let piece = this.board.squares[this.activeSquare.x][this.activeSquare.y];
+
+    if (piece === null) return [];
+
+    let moves = piece.getMoves(this.activeSquare, this, this.board);
+
+    return moves;
+  }
+
+  public clicked(position: Vector2): void {
+    if (this.activeSquare === null) {
+      let clickedPiece = this.board.squares[position.x][position.y];
+      if (clickedPiece === null || this.toPlay !== clickedPiece.color) return;
 
       this.activeSquare = position;
-    }
+    } else {
+      let activeSquare : Vector2 = this.activeSquare; // not nullable
+      if (position.equals(this.activeSquare)) {
+        this.activeSquare = null;
+        return;
+      }
 
-    else {
-      if (position.compare(this.activeSquare)) this.activeSquare = null;
+      let moves = this.getAvailableMoves();
+
+      moves.forEach(move => {
+        if (position.equals(move))
+        {
+          console.log(`Doing move...`);
+          let pieceToMove = this.board.squares[activeSquare.x][activeSquare.y];
+          if (pieceToMove === null) throw new Error();
+          pieceToMove.doMove(activeSquare, position, this, this.board);
+        }
+      });
+
+      this.activeSquare = null;
     }
   }
 }
@@ -212,7 +432,7 @@ class Game implements IGame {
 class Renderer {
   game: IGame;
   divContainer: HTMLDivElement;
-  squares: HTMLDivElement[][]
+  squares: HTMLDivElement[][];
 
   constructor(game: IGame, divContainer: HTMLDivElement) {
     this.game = game;
@@ -224,26 +444,20 @@ class Renderer {
     let size = this.game.size();
     this.squares = [];
 
-    for (let i = 0; i < size; i++)
-    {
+    for (let i = 0; i < size; i++) {
       this.squares[i] = [];
 
       let column = document.createElement("div");
       column.classList.add("chessboard-column");
       this.divContainer.appendChild(column);
 
-      for (let j = 0; j < size; j++)
-      {
+      for (let j = 0; j < size; j++) {
         this.squares[i][j] = document.createElement("div");
         this.squares[i][j].classList.add("chessboard-square");
-        
-        if (((i + (j % 2)) % 2) === 0)
-        {
+
+        if ((i + (j % 2)) % 2 === 0) {
           this.squares[i][j].classList.add("chessboard-square-black");
-        }
-        
-        else
-        {
+        } else {
           this.squares[i][j].classList.add("chessboard-square-white");
         }
 
@@ -260,36 +474,42 @@ class Renderer {
     let state = this.game.getBoardState();
 
     let size = this.game.size();
-    for (let x = 0; x < size; x++)
-    {
-      for (let y = 0; y < size; y++)
-      {
-        this.squares[x][y].classList.remove("chessboard-square-highlighted");
+    for (let x = 0; x < size; x++) {
+      for (let y = 0; y < size; y++) {
+        this.squares[x][y].classList.remove(
+          "chessboard-square-highlighted",
+          "chessboard-square-available"
+        );
         this.renderSquare(this.squares[x][y], state[x][y]);
       }
     }
 
     let activeSquare = this.game.getActiveSquare();
-    if (activeSquare !== null)
-    {
-      this.squares[activeSquare.x][activeSquare.y].classList.add("chessboard-square-highlighted");
+    if (activeSquare !== null) {
+      this.squares[activeSquare.x][activeSquare.y].classList.add(
+        "chessboard-square-highlighted"
+      );
+
+      let available = this.game.getAvailableMoves();
+      available.forEach((element) => {
+        this.squares[element.x][element.y].classList.add(
+          "chessboard-square-available"
+        );
+      });
     }
 
     log(this);
   }
 
-  private renderSquare(square : HTMLDivElement, piece : IPiece | null): void {
-
-    if (piece === null)
-    {
+  private renderSquare(square: HTMLDivElement, piece: IPiece | null): void {
+    if (piece === null) {
       square.innerText = "";
       square.classList.remove("white-piece");
       square.classList.remove("black-piece");
-     return; 
+      return;
     }
 
-    switch(piece.getNotation())
-    {
+    switch (piece.getNotation()) {
       case "K":
         square.innerText = UNICODE_REPRESENTATION["black-king"];
         break;
@@ -310,8 +530,7 @@ class Renderer {
         break;
     }
 
-    switch(piece.getColor())
-    {
+    switch (piece.getColor()) {
       case Color.White:
         square.classList.remove("black-piece");
         square.classList.add("white-piece");
@@ -324,7 +543,7 @@ class Renderer {
     }
   }
 
-  private clickedAtSquare(position : Vector2): void {
+  private clickedAtSquare(position: Vector2): void {
     log(`Clicked (${position.x},${position.y})`);
     this.game.clicked(position);
     this.render();
